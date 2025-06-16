@@ -33,15 +33,98 @@ def main():
 
     generate_content(client, messages)
 
+
+def get_function_declarations():
+    schema_get_files_info = types.FunctionDeclaration(
+        name="get_files_info",
+        description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "directory": types.Schema(
+                    type=types.Type.STRING,
+                    description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
+                ),
+            },
+        ),
+    )
+
+    schema_get_file_content = types.FunctionDeclaration(
+        name="get_file_content",
+        description="Returns the text contents of a file in the working directory as a string.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The path (relative to the working directory) to the file to retrieve the contents of. Required."
+                )
+            }
+        )
+    )
+
+    schema_run_python_file = types.FunctionDeclaration(
+        name="run_python_file",
+        description="Executes a python file at the specified file path.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The path, relative to the working directory, of the python script to execute. Required."
+                )
+            }
+        )
+    )
+
+    schema_write_file = types.FunctionDeclaration(
+        name="write_file",
+        description="Write or overwrite a file at the specified file path with the provided content string.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The path, relative to the working directory, of the file to write to. Required."
+                ),
+                "content": types.Schema(
+                    type=types.Type.STRING,
+                    description="The content to write into the file. Required.",
+                )
+            }
+        )
+    )
+
+    function_declarations = [
+        schema_get_files_info,
+        schema_get_file_content,
+        schema_run_python_file,
+        schema_write_file
+    ]
+
+    return function_declarations
+
+
 def generate_content(client, messages):
+
+    available_functions = types.Tool(
+        function_declarations=get_function_declarations()
+    )
 
     response = client.models.generate_content(
         model="gemini-2.0-flash-001",
         contents=messages,
-        config=types.GenerateContentConfig(system_instruction=config.SYSTEM_PROMPT)
+        config=types.GenerateContentConfig(
+            tools=[available_functions],
+            system_instruction=config.SYSTEM_PROMPT
         )
+    )
 
-    print(response.text)
+    if response.function_calls:
+        for call in response.function_calls:
+            print(f"Calling function: {call.name}({call.args})")
+    else:
+        print(response.text)
 
     vprint(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
     vprint(f"Response tokens: {response.usage_metadata.candidates_token_count}")
@@ -51,5 +134,6 @@ def generate_content(client, messages):
 def vprint(msg):
     if verbose:
         print(msg)
+
 
 main()
