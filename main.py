@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from functions.call_function import call_function
+
 import config
 
 verbose = False
@@ -122,7 +124,13 @@ def generate_content(client, messages):
 
     if response.function_calls:
         for call in response.function_calls:
-            print(f"Calling function: {call.name}({call.args})")
+            vprint(f"Calling function: {call.name}({call.args})")
+            content = call_function(call, verbose=verbose)
+            if content.parts[0].function_response.response:
+                vprint(content.parts[0].function_response.response)
+            else:
+                raise Exception("Invalid response from GEMINI")
+
     else:
         print(response.text)
 
