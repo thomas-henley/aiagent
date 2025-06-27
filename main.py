@@ -113,29 +113,34 @@ def generate_content(client, messages):
         function_declarations=get_function_declarations()
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-001",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions],
-            system_instruction=config.SYSTEM_PROMPT
+    for i in range(0,20):
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                tools=[available_functions],
+                system_instruction=config.SYSTEM_PROMPT
+            )
         )
-    )
 
-    if response.function_calls:
-        for call in response.function_calls:
-            vprint(f"Calling function: {call.name}({call.args})")
-            content = call_function(call, verbose=verbose)
-            if content.parts[0].function_response.response:
-                vprint(content.parts[0].function_response.response)
-            else:
-                raise Exception("Invalid response from GEMINI")
+        for c in response.candidates:
+            messages.append(c.content)
 
-    else:
-        print(response.text)
+        if response.function_calls:
+            for call in response.function_calls:
+                vprint(f"Calling function: {call.name}({call.args})")
+                content = call_function(call, verbose=verbose)
+                messages.append(content)
+                if content.parts[0].function_response.response:
+                    vprint(content.parts[0].function_response.response)
+                else:
+                    raise Exception("Invalid response from GEMINI")
+        else:
+            print(response.text)
+            break
 
-    vprint(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-    vprint(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+        vprint(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+        vprint(f"Response tokens: {response.usage_metadata.candidates_token_count}")
 
 
 
